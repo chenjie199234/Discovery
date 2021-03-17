@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-deployment
+  namespace: default
+  labels:
+    app: discovery
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  minReadySeconds: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: discovery
+  template:
+    metadata:
+      labels:
+        app: discovery
+    spec:
+      containers:
+        - name: discovery
+          image: <IMAGE>
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+          env:
+            - name: APP_NAME
+              value: discovery
+            - name: DEPLOY_ENV
+              value: kubernetes
+          livenessProbe:
+            exec:
+              command:
+                - ./probe.sh
+            initialDelaySeconds: 2
+            timeoutSeconds: 1
+            periodSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - ./probe.sh
+            initialDelaySeconds: 2
+            timeoutSeconds: 1
+            periodSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          ports:
+            - name: web
+              containerPort: 8000
+              protocol: TCP
+            - name: rpc
+              containerPort: 10000
+              protocol: TCP
+      imagePullSecrets:
+        - name: default-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-service
+  namespace: default
+  labels:
+    app: discovery
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: discovery
