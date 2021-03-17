@@ -14,12 +14,31 @@ import (
 
 func main() {
 	defer log.Close()
-	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", []byte(os.Getenv("DISCOVERY_SERVER_VERIFY_DATA")))
+	oldvd := os.Getenv("OLD_DISCOVERY_SERVER_VERIFY_DATA")
+	if oldvd == "<OLD_DISCOVERY_SERVER_VERIFY_DATA>" {
+		oldvd = ""
+	}
+	newvd := os.Getenv("DISCOVERY_SERVER_VERIFY_DATA")
+	if newvd == "<DISCOVERY_SERVER_VERIFY_DATA>" {
+		newvd = ""
+	}
+	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", oldvd, newvd)
 	if e != nil {
 		log.Error("[Discovery] new discovery server error:", e)
 		return
 	}
+	oldvd = os.Getenv("OLD_PPROF_VERIFY_DATA")
+	if oldvd == "<OLD_PPROF_VERIFY_DATA>" {
+		oldvd = ""
+	}
+	newvd = os.Getenv("PPROF_VERIFY_DATA")
+	if newvd == "<PPROF_VERIFY_DATA>" {
+		newvd = ""
+	}
 	webserver, e := web.NewWebServer(&web.Config{
+		UsePprof:           true,
+		PprofVerifyData:    newvd,
+		OldPprofVerifyData: oldvd,
 		Timeout:            time.Millisecond * 500,
 		StaticFileRootPath: "./src",
 		MaxHeader:          1024,
