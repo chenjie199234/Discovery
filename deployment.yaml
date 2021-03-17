@@ -31,8 +31,6 @@ spec:
               memory: 256Mi
               cpu: 250m
           env:
-            - name: APP_NAME
-              value: discovery
             - name: DEPLOY_ENV
               value: kubernetes
           livenessProbe:
