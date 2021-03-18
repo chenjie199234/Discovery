@@ -15,10 +15,15 @@ import (
 func main() {
 	defer log.Close()
 	verifydatas := make([]string, 0)
-	if str, ok := os.LookupEnv("DISCOVERY_SERVER_VERIFY_DATA"); ok && len(str) >= 2 && str[0] == '[' && str[len(str)-1] == ']' {
-		if e := json.Unmarshal([]byte(str), &verifydatas); e != nil {
-			log.Error("[Discovery] system env:DISCOVERY_SERVER_VERIFY_DATA error:", e)
-			return
+	if str, ok := os.LookupEnv("DISCOVERY_SERVER_VERIFY_DATA"); ok {
+		if str == "<DISCOVERY_SERVER_VERIFY_DATA>" {
+			str = ""
+		}
+		if str != "" {
+			if e := json.Unmarshal([]byte(str), &verifydatas); e != nil {
+				log.Error("[Discovery] system env:DISCOVERY_SERVER_VERIFY_DATA error:", e)
+				return
+			}
 		}
 	}
 	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
