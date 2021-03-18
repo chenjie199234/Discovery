@@ -26,6 +26,7 @@ func main() {
 			}
 		}
 	}
+	log.Info("[Discovery] server's verifydata:", verifydatas)
 	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
 	if e != nil {
 		log.Error("[Discovery] new discovery server error:", e)
