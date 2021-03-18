@@ -14,31 +14,19 @@ import (
 
 func main() {
 	defer log.Close()
-	oldvd := os.Getenv("OLD_DISCOVERY_SERVER_VERIFY_DATA")
-	if oldvd == "<OLD_DISCOVERY_SERVER_VERIFY_DATA>" {
-		oldvd = ""
+	verifydatas := make([]string, 0)
+	if str, ok := os.LookupEnv("DISCOVERY_SERVER_VERIFY_DATA"); ok && len(str) >= 2 && str[0] == '[' && str[len(str)-1] == ']' {
+		if e := json.Unmarshal([]byte(str), &verifydatas); e != nil {
+			log.Error("[Discovery] system env:DISCOVERY_SERVER_VERIFY_DATA error:", e)
+			return
+		}
 	}
-	newvd := os.Getenv("DISCOVERY_SERVER_VERIFY_DATA")
-	if newvd == "<DISCOVERY_SERVER_VERIFY_DATA>" {
-		newvd = ""
-	}
-	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", oldvd, newvd)
+	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
 	if e != nil {
 		log.Error("[Discovery] new discovery server error:", e)
 		return
 	}
-	oldvd = os.Getenv("OLD_PPROF_VERIFY_DATA")
-	if oldvd == "<OLD_PPROF_VERIFY_DATA>" {
-		oldvd = ""
-	}
-	newvd = os.Getenv("PPROF_VERIFY_DATA")
-	if newvd == "<PPROF_VERIFY_DATA>" {
-		newvd = ""
-	}
 	webserver, e := web.NewWebServer(&web.Config{
-		UsePprof:           true,
-		PprofVerifyData:    newvd,
-		OldPprofVerifyData: oldvd,
 		Timeout:            time.Millisecond * 500,
 		StaticFileRootPath: "./src",
 		MaxHeader:          1024,
