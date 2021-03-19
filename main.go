@@ -14,22 +14,19 @@ import (
 
 func main() {
 	defer log.Close()
-	verifydatas := make([]string, 0)
-	if str, ok := os.LookupEnv("DISCOVERY_SERVER_VERIFY_DATA"); ok {
-		if str == "<DISCOVERY_SERVER_VERIFY_DATA>" {
-			str = ""
+	var verifydatas []string
+	if str, ok := os.LookupEnv("SERVER_VERIFY_DATA"); ok && str != "<SERVER_VERIFY_DATA>" {
+		verifydatas = make([]string, 0)
+		if e := json.Unmarshal([]byte(str), &verifydatas); e != nil {
+			log.Error("[main] SERVER_VERIFY_DATA must be json string array like:[\"abc\",\"123\"]")
+			return
 		}
-		if str != "" {
-			if e := json.Unmarshal([]byte(str), &verifydatas); e != nil {
-				log.Error("[Discovery] system env:DISCOVERY_SERVER_VERIFY_DATA error:", e)
-				return
-			}
-		}
+	} else {
+		log.Warning("[main] missing SERVER_VERIFY_DATA")
 	}
-	log.Info("[Discovery] server's verifydata:", verifydatas)
 	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
 	if e != nil {
-		log.Error("[Discovery] new discovery server error:", e)
+		log.Error("[main] new discovery server error:", e)
 		return
 	}
 	webserver, e := web.NewWebServer(&web.Config{
@@ -47,7 +44,7 @@ func main() {
 		},
 	}, "default", "discovery")
 	if e != nil {
-		log.Error("[Discovery] new web server error:", e)
+		log.Error("[main] new web server error:", e)
 		return
 	}
 	webserver.Get("/infos", time.Millisecond*500, func(ctx *web.Context) {
@@ -69,7 +66,7 @@ func main() {
 	ch := make(chan os.Signal, 1)
 	go func() {
 		if e := discoveryserver.StartDiscoveryServer(":10000"); e != nil {
-			log.Error("[Discovery] start discovery server error:", e)
+			log.Error("[main] start discovery server error:", e)
 		}
 		select {
 		case ch <- syscall.SIGTERM:
@@ -78,7 +75,7 @@ func main() {
 	}()
 	go func() {
 		if e := webserver.StartWebServer(":8000", "", ""); e != nil {
-			log.Error("[Discovery] start web server error:", e)
+			log.Error("[main] start web server error:", e)
 		}
 		select {
 		case ch <- syscall.SIGTERM:

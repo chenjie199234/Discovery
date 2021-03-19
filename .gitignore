@@ -1,5 +1,6 @@
 *
 !.gitignore
+!cmd.sh
 !probe.sh
 !deployment.yaml
 !Dockerfile
