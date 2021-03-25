@@ -8,5 +8,5 @@ web监听端口为8000</br>
 /info/{group}/{name} 获取{group}下的{name}的注册信息</br>
 # 环境变量
 SERVER_VERIFY_DATA 	连接注册中心时需要用的验证数据</br>
-RUN_ENV 		运行环境,如:test,pre,prod
-DEPLOY_ENV 		部署环境,如:host,k8s
+RUN_ENV 		运行环境,如:test,pre,prod</br>
+DEPLOY_ENV 		部署环境,如:host,k8s</br>
