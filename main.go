@@ -29,12 +29,13 @@ func main() {
 		log.Error("[main] new discovery server error:", e)
 		return
 	}
-	webserver, e := web.NewWebServer(&web.Config{
-		Timeout:            time.Millisecond * 500,
+	webserver, e := web.NewWebServer(&web.ServerConfig{
+		GlobalTimeout:      time.Millisecond * 500,
+		IdleTimeout:        time.Minute * 10,
 		StaticFileRootPath: "./src",
 		MaxHeader:          1024,
-		ReadBuffer:         1024,
-		WriteBuffer:        1024,
+		SocketRBuf:         1024,
+		SocketWBuf:         1024,
 		Cors: &web.CorsConfig{
 			AllowedOrigin:    []string{"*"},
 			AllowedHeader:    []string{"*"},
@@ -74,7 +75,7 @@ func main() {
 		}
 	}()
 	go func() {
-		if e := webserver.StartWebServer(":8000", "", ""); e != nil {
+		if e := webserver.StartWebServer(":8000", nil); e != nil {
 			log.Error("[main] start web server error:", e)
 		}
 		select {
