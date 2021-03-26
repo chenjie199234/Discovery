@@ -29,21 +29,7 @@ func main() {
 		log.Error("[main] new discovery server error:", e)
 		return
 	}
-	webserver, e := web.NewWebServer(&web.ServerConfig{
-		GlobalTimeout:      time.Millisecond * 500,
-		IdleTimeout:        time.Minute * 10,
-		StaticFileRootPath: "./src",
-		MaxHeader:          1024,
-		SocketRBuf:         1024,
-		SocketWBuf:         1024,
-		Cors: &web.CorsConfig{
-			AllowedOrigin:    []string{"*"},
-			AllowedHeader:    []string{"*"},
-			ExposeHeader:     nil,
-			AllowCredentials: false,
-			MaxAge:           time.Hour * 24,
-		},
-	}, "default", "discovery")
+	webserver, e := web.NewWebServer(&web.ServerConfig{IdleTimeout: time.Second * 5}, "default", "discovery")
 	if e != nil {
 		log.Error("[main] new web server error:", e)
 		return
