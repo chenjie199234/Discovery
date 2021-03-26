@@ -1,4 +1,4 @@
-module discovery
+module github.com/chenjie199234/Discovery
 
 go 1.16
 
