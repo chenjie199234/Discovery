@@ -1,4 +1,8 @@
 *
+!/sdk/
+!/sdk/*
+!/sdk/**/
+!/sdk/**/*
 !.gitignore
 !cmd.sh
 !probe.sh
