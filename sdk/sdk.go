@@ -10,3 +10,12 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 	}
 	return nil
 }
+
+func RegisterSelf(rpcport, webport int, webscheme string, addition []byte) {
+	discovery.RegisterSelf(&discovery.RegMsg{
+		WebScheme: webscheme,
+		WebPort:   webport,
+		RpcPort:   rpcport,
+		Addition:  addition,
+	})
+}
