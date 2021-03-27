@@ -127,6 +127,3 @@ func RegisterSelf(addition []byte) error {
 		return errors.New("[discovery.sdk] not inited")
 	}
 }
-func UnRegisterSelf() {
-	discovery.UnRegisterSelf()
-}
