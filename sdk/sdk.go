@@ -15,7 +15,7 @@ import (
 	"github.com/chenjie199234/Corelib/util/common"
 )
 
-var regmsg *discovery.RegMsg
+var regmsg *discovery.RegInfo
 
 func NewSdk(selfgroup, selfname, verifydata string) error {
 	if e := common.NameCheck(selfname, false, true, false, true); e != nil {
@@ -83,7 +83,7 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 	}
 	return nil
 }
-func RegRpc(rpcport int) error {
+func RegRpc(rpcport int64) error {
 	if rpcport <= 0 || rpcport > 65535 {
 		return errors.New("[discovery.sdk] rpcport out of range")
 	}
@@ -97,7 +97,7 @@ func RegRpc(rpcport int) error {
 		return errors.New("[discovery.sdk] not inited")
 	}
 }
-func RegWeb(webport int, webscheme string) error {
+func RegWeb(webport int64, webscheme string) error {
 	if webport <= 0 || webport > 65535 {
 		return errors.New("[discovery.sdk] webport out of range")
 	}
@@ -126,4 +126,8 @@ func RegisterSelf(addition []byte) error {
 	} else {
 		return errors.New("[discovery.sdk] not inited")
 	}
+}
+
+func UnRegisterSelf() {
+	discovery.UnRegisterSelf()
 }
