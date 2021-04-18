@@ -8,9 +8,14 @@ help() {
 	echo "   ./cmd.sh <option>"
 	echo ""
 	echo "Options:"
+	echo "   pb                        Generate msg proto file"
 	echo "   run                       Run this program"
 	echo "   build                     Complie this program to binary"
 	echo "   h/-h/help/-help/--help    Show this message"
+}
+
+pb() {
+	protoc --go_out=../ msg/msg.proto
 }
 
 run() {
@@ -35,6 +40,11 @@ fi
 
 if [[ $# == 0 ]] || [[ "$1" == "h" ]] || [[ "$1" == "help" ]] || [[ "$1" == "-h" ]] || [[ "$1" == "-help" ]] || [[ "$1" == "--help" ]]; then
 	help
+	exit 0
+fi
+
+if [[ "$1" == "pb" ]]; then
+	pb
 	exit 0
 fi
 

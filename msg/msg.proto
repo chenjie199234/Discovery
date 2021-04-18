@@ -1,6 +1,6 @@
 syntax="proto3";
 package msg;
-option go_package=".;msg";
+option go_package="Discovery/msg;msg";
 enum MsgType{
 	Reg=0;
 	UnReg=1;
