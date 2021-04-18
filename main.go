@@ -7,7 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/chenjie199234/Corelib/discovery"
+	"github.com/chenjie199234/Discovery/server"
+
 	"github.com/chenjie199234/Corelib/log"
 	"github.com/chenjie199234/Corelib/web"
 )
@@ -24,7 +25,7 @@ func main() {
 	} else {
 		log.Warning("[main] missing SERVER_VERIFY_DATA")
 	}
-	discoveryserver, e := discovery.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
+	discoveryserver, e := server.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
 	if e != nil {
 		log.Error("[main] new discovery server error:", e)
 		return

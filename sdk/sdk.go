@@ -10,28 +10,30 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/chenjie199234/Corelib/discovery"
+	"github.com/chenjie199234/Discovery/client"
+	"github.com/chenjie199234/Discovery/msg"
+
 	"github.com/chenjie199234/Corelib/log"
 	"github.com/chenjie199234/Corelib/util/common"
 )
 
-var regmsg *discovery.RegInfo
+var regmsg *msg.RegInfo
 
 func NewSdk(selfgroup, selfname, verifydata string) error {
 	if e := common.NameCheck(selfname, false, true, false, true); e != nil {
-		return errors.New("[discovery.sdk] selfname:" + selfname + " check error:" + e.Error())
+		return errors.New("[Discovery.sdk] selfname:" + selfname + " check error:" + e.Error())
 	}
 	if e := common.NameCheck(selfgroup, false, true, false, true); e != nil {
-		return errors.New("[discovery.sdk] selfgroup:" + selfgroup + " check error:" + e.Error())
+		return errors.New("[Discovery.sdk] selfgroup:" + selfgroup + " check error:" + e.Error())
 	}
 	selfappname := selfgroup + "." + selfname
 	if e := common.NameCheck(selfappname, true, true, false, true); e != nil {
-		return errors.New("[discovery.sdk] selfappname:" + selfappname + " check error:" + e.Error())
+		return errors.New("[Discovery.sdk] selfappname:" + selfappname + " check error:" + e.Error())
 	}
-	if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&regmsg)), nil, unsafe.Pointer(&discovery.RegMsg{})) {
+	if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&regmsg)), nil, unsafe.Pointer(&msg.RegMsg{})) {
 		return nil
 	}
-	if e := discovery.NewDiscoveryClient(nil, selfgroup, selfname, verifydata, func(manually chan struct{}, client *discovery.DiscoveryClient) {
+	if e := client.NewDiscoveryClient(nil, selfgroup, selfname, verifydata, func(manually chan struct{}, client *client.DiscoveryClient) {
 		host := "discovery-service.default"
 		appname := "default.discovery"
 
@@ -42,7 +44,7 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 			defer cancel()
 			addrs, e := net.DefaultResolver.LookupHost(ctx, host)
 			if e != nil {
-				log.Error("[discovery.sdk] dns resolve host:", host, "error:", e)
+				log.Error("[Discovery.sdk] dns resolve host:", host, "error:", e)
 				return
 			}
 			if len(addrs) != 0 {
@@ -64,7 +66,7 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 			}
 			if different {
 				current = addrs
-				log.Info("[discovery.sdk] dns resolve host:", host, "result:", current)
+				log.Info("[Discovery.sdk] dns resolve host:", host, "result:", current)
 				client.UpdateDiscoveryServers(addrs)
 			}
 		}
@@ -85,49 +87,49 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 }
 func RegRpc(rpcport int64) error {
 	if rpcport <= 0 || rpcport > 65535 {
-		return errors.New("[discovery.sdk] rpcport out of range")
+		return errors.New("[Discovery.sdk] rpcport out of range")
 	}
 	if regmsg != nil {
 		if rpcport == regmsg.WebPort {
-			return errors.New("[discovery.sdk] rpcport and webport conflict")
+			return errors.New("[Discovery.sdk] rpcport and webport conflict")
 		}
 		regmsg.RpcPort = rpcport
 		return nil
 	} else {
-		return errors.New("[discovery.sdk] not inited")
+		return errors.New("[Discovery.sdk] not inited")
 	}
 }
 func RegWeb(webport int64, webscheme string) error {
 	if webport <= 0 || webport > 65535 {
-		return errors.New("[discovery.sdk] webport out of range")
+		return errors.New("[Discovery.sdk] webport out of range")
 	}
 	if regmsg != nil {
 		if webport == regmsg.RpcPort {
-			return errors.New("[discovery.sdk] rpcport and webport conflict")
+			return errors.New("[Discovery.sdk] rpcport and webport conflict")
 		}
 		if webscheme != "http" && webscheme != "https" {
-			return errors.New("[discovery.sdk] webscheme unknown,must be http or https")
+			return errors.New("[Discovery.sdk] webscheme unknown,must be http or https")
 		}
 		regmsg.WebPort = webport
 		regmsg.WebScheme = webscheme
 		return nil
 	} else {
-		return errors.New("[discovery.sdk] not inited")
+		return errors.New("[Discovery.sdk] not inited")
 	}
 }
 
 func RegisterSelf(addition []byte) error {
 	if regmsg != nil {
 		if bytes.Contains(addition, []byte{'|'}) {
-			return errors.New("[discovery.sdk] addition data contains illegal character '|'")
+			return errors.New("[Discovery.sdk] addition data contains illegal character '|'")
 		}
 		regmsg.Addition = addition
-		return discovery.RegisterSelf(regmsg)
+		return client.RegisterSelf(regmsg)
 	} else {
-		return errors.New("[discovery.sdk] not inited")
+		return errors.New("[Discovery.sdk] not inited")
 	}
 }
 
 func UnRegisterSelf() {
-	discovery.UnRegisterSelf()
+	client.UnRegisterSelf()
 }
