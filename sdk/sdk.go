@@ -52,6 +52,8 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 				for i, addr := range addrs {
 					addrs[i] = appname + ":" + addr + ":10000"
 				}
+			} else {
+				log.Warning("[Discovery.sdk] dns resolve host:", host, "return empty result")
 			}
 			different := false
 			if len(current) != len(addrs) {
@@ -78,6 +80,10 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 				finder()
 			case <-manually:
 				finder()
+				tker.Reset(time.Second * 5)
+				for len(tker.C) > 0 {
+					<-tker.C
+				}
 			}
 		}
 	}); e != nil {
