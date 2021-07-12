@@ -40,7 +40,7 @@ func DefaultRpcDiscover(group, name string, manually <-chan struct{}, c *rpc.Rpc
 	}
 }
 
-func DefaultWebDiscover(group, name string, c *web.WebClient) {
+func DefaultWebDiscover(group, name string, manually <-chan struct{}, c *web.WebClient) {
 	var notice chan struct{}
 	var e error
 	for {
