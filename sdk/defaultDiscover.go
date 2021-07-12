@@ -1,20 +1,16 @@
 package sdk
 
 import (
-	"bytes"
-	"encoding/json"
-	"sort"
 	"time"
 
 	"github.com/chenjie199234/Discovery/client"
 
 	"github.com/chenjie199234/Corelib/log"
 	"github.com/chenjie199234/Corelib/rpc"
-	"github.com/chenjie199234/Corelib/util/common"
 	"github.com/chenjie199234/Corelib/web"
 )
 
-func DefaultRpcDiscover(group, name string, c *rpc.RpcClient) {
+func DefaultRpcDiscover(group, name string, manually <-chan struct{}, c *rpc.RpcClient) {
 	var notice chan struct{}
 	var e error
 	for {
@@ -27,21 +23,20 @@ func DefaultRpcDiscover(group, name string, c *rpc.RpcClient) {
 		}
 	}
 
-	currentinfos := []byte("{}")
-	currentaddition := []byte(nil)
 	for {
 		<-notice
-		infos, addition := client.GetRpcInfos(group + "." + name)
-		for _, v := range infos {
-			sort.Strings(v)
+		addrs, additions := client.GetRpcInfos(group + "." + name)
+		all := make(map[string]*rpc.RegisterData, len(addrs)+2)
+		for addr := range addrs {
+			all[addr] = &rpc.RegisterData{
+				DServers: make(map[string]struct{}, len(addrs[addr])+2),
+				Addition: additions[addr],
+			}
+			for _, dserver := range addrs[addr] {
+				all[addr].DServers[dserver] = struct{}{}
+			}
 		}
-		tempinfos, _ := json.Marshal(infos)
-		if !bytes.Equal(currentinfos, tempinfos) || !bytes.Equal(currentaddition, addition) {
-			currentinfos = tempinfos
-			currentaddition = addition
-			log.Info("[rpc.client.defaultDiscover] update server:", group+"."+name, "addr:", common.Byte2str(currentinfos), "addition:", common.Byte2str(currentaddition))
-			c.UpdateDiscovery(infos, addition)
-		}
+		c.UpdateDiscovery(all)
 	}
 }
 
@@ -58,20 +53,19 @@ func DefaultWebDiscover(group, name string, c *web.WebClient) {
 		}
 	}
 
-	currentinfos := []byte("{}")
-	currentaddition := []byte(nil)
 	for {
 		<-notice
-		infos, addition := client.GetWebInfos(group + "." + name)
-		for _, v := range infos {
-			sort.Strings(v)
+		addrs, additions := client.GetWebInfos(group + "." + name)
+		all := make(map[string]*web.RegisterData, len(addrs)+2)
+		for addr := range addrs {
+			all[addr] = &web.RegisterData{
+				DServers: make(map[string]struct{}, len(addrs[addr])+2),
+				Addition: additions[addr],
+			}
+			for _, dserver := range addrs[addr] {
+				all[addr].DServers[dserver] = struct{}{}
+			}
 		}
-		tempinfos, _ := json.Marshal(infos)
-		if !bytes.Equal(currentinfos, tempinfos) || !bytes.Equal(currentaddition, addition) {
-			currentinfos = tempinfos
-			currentaddition = addition
-			log.Info("[web.client.defaultDiscover] update server:", group+"."+name, "addr:", common.Byte2str(currentinfos), "addition:", common.Byte2str(currentaddition))
-			c.UpdateDiscovery(infos, addition)
-		}
+		c.UpdateDiscovery(all)
 	}
 }

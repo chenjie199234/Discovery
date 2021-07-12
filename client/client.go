@@ -318,8 +318,9 @@ func NoticeRpcChanges(appname string) (chan struct{}, error) {
 //key:app addr
 //value:discovery server addrs
 //second return value
-//addition info
-func GetRpcInfos(appname string) (map[string][]string, []byte) {
+//key:app addr
+//value:addition data
+func GetRpcInfos(appname string) (map[string][]string, map[string][]byte) {
 	if instance == nil {
 		return nil, nil
 	}
@@ -330,20 +331,24 @@ func GetRpcInfos(appname string) (map[string][]string, []byte) {
 //key:app addr
 //value:discovery server addrs
 //second return value
-//addition info
-func GetWebInfos(appname string) (map[string][]string, []byte) {
+//key:app addr
+//value:addition data
+func GetWebInfos(appname string) (map[string][]string, map[string][]byte) {
 	if instance == nil {
 		return nil, nil
 	}
 	return getinfos(appname, 2)
 }
 
+//first return value
 //first key:app addr
-//second key:discovery addr
+//second key:discovery addrs
+//second return value
+//key:app addr
 //value:addition data
-func getinfos(appname string, t int) (map[string][]string, []byte) {
-	result := make(map[string][]string, 5)
-	var resultaddition []byte
+func getinfos(appname string, t int) (map[string][]string, map[string][]byte) {
+	addrs := make(map[string][]string, 5)
+	additions := make(map[string][]byte, 5)
 	instance.lker.RLock()
 	defer instance.lker.RUnlock()
 	for serveruniquename, server := range instance.servers {
@@ -363,16 +368,16 @@ func getinfos(appname string, t int) (map[string][]string, []byte) {
 					}
 					addr = app.WebScheme + "://" + app.WebIp + ":" + strconv.FormatInt(app.WebPort, 10)
 				}
-				if _, ok := result[addr]; !ok {
-					result[addr] = make([]string, 0, 5)
+				if _, ok := addrs[addr]; !ok {
+					addrs[addr] = make([]string, 0, 5)
 				}
-				result[addr] = append(result[addr], serveruniquename)
-				resultaddition = app.Addition
+				addrs[addr] = append(addrs[addr], serveruniquename)
+				additions[addr] = app.Addition
 			}
 		}
 		server.lker.Unlock()
 	}
-	return result, resultaddition
+	return addrs, additions
 }
 
 func (c *DiscoveryClient) verifyfunc(ctx context.Context, serveruniquename string, peerVerifyData []byte) ([]byte, bool) {
