@@ -34,7 +34,7 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 		return nil
 	}
 	if e := client.NewDiscoveryClient(nil, selfgroup, selfname, verifydata, func(manually chan struct{}, client *client.DiscoveryClient) {
-		host := "discovery-service.default"
+		host := "discovery-service-headless.default"
 		appname := "default.discovery"
 
 		current := make([]string, 0)
