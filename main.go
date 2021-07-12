@@ -73,4 +73,5 @@ func main() {
 	signal.Notify(ch, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-ch
 	discoveryserver.StopDiscoveryServer()
+	webserver.StopWebServer()
 }
