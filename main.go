@@ -25,7 +25,9 @@ func main() {
 	} else {
 		log.Warning("[main] missing SERVER_VERIFY_DATA")
 	}
-	discoveryserver, e := server.NewDiscoveryServer(nil, "default", "discovery", verifydatas)
+	discoveryserver, e := server.NewDiscoveryServer(&server.ServerConfig{
+		VerifyDatas: verifydatas,
+	}, "default", "discovery")
 	if e != nil {
 		log.Error("[main] new discovery server error:", e)
 		return

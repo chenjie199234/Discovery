@@ -15,12 +15,11 @@ message msg {
 	PushMsg push_msg=5;
 }
 message RegInfo{
-	string web_scheme=1;
-	string web_ip=2;
-	int64 web_port=3;
-	string rpc_ip=4;
-	int64 rpc_port=5;
-	bytes addition=6;
+	string web_ip=1;
+	int64 web_port=2;
+	string rpc_ip=3;
+	int64 rpc_port=4;
+	bytes addition=5;
 }
 message RegMsg {
 	string app_unique_name=1;

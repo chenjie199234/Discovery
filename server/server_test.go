@@ -4,22 +4,19 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/chenjie199234/Corelib/stream"
 )
 
 func Test_Server1(t *testing.T) {
-	instance, e := NewDiscoveryServer(&stream.InstanceConfig{
-		HeartbeatTimeout:       5 * time.Second,
-		HeartprobeInterval:     2 * time.Second,
-		MaxBufferedWriteMsgNum: 256,
+	instance, e := NewDiscoveryServer(&ServerConfig{
+		HeartTimeout:           time.Second * 5,
+		HeartPorbe:             time.Second * 2,
+		SocketRBuf:             1024,
+		SocketWBuf:             1024,
 		GroupNum:               1,
-		TcpC: &stream.TcpConfig{
-			ConnectTimeout: 500 * time.Millisecond,
-			SocketRBufLen:  1024,
-			SocketWBufLen:  1024,
-		},
-	}, "default", "discoverycenter1", []string{"test"})
+		MaxMsgLen:              65535,
+		MaxBufferedWriteMsgNum: 256,
+		VerifyDatas:            []string{"test"},
+	}, "default", "discovery")
 	if e != nil {
 		panic(e)
 	}
@@ -34,17 +31,16 @@ func Test_Server1(t *testing.T) {
 	instance.StartDiscoveryServer("127.0.0.1:9234")
 }
 func Test_Server2(t *testing.T) {
-	instance, e := NewDiscoveryServer(&stream.InstanceConfig{
-		HeartbeatTimeout:       5 * time.Second,
-		HeartprobeInterval:     2 * time.Second,
-		MaxBufferedWriteMsgNum: 256,
+	instance, e := NewDiscoveryServer(&ServerConfig{
+		HeartTimeout:           time.Second * 5,
+		HeartPorbe:             time.Second * 2,
+		SocketRBuf:             1024,
+		SocketWBuf:             1024,
 		GroupNum:               1,
-		TcpC: &stream.TcpConfig{
-			ConnectTimeout: 500 * time.Millisecond,
-			SocketRBufLen:  1024,
-			SocketWBufLen:  1024,
-		},
-	}, "default", "discoverycenter2", []string{"test"})
+		MaxMsgLen:              65535,
+		MaxBufferedWriteMsgNum: 256,
+		VerifyDatas:            []string{"test"},
+	}, "default", "discovery")
 	if e != nil {
 		panic(e)
 	}

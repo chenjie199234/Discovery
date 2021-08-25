@@ -2,8 +2,11 @@ package server
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/chenjie199234/Discovery/msg"
@@ -20,16 +23,64 @@ const (
 	s_REGISTERED
 )
 
+type ServerConfig struct {
+	//when server close,server will wait this time before close,every request will refresh the time
+	//min is 1 second
+	HeartTimeout           time.Duration
+	HeartPorbe             time.Duration
+	GroupNum               uint32
+	SocketRBuf             uint32
+	SocketWBuf             uint32
+	MaxMsgLen              uint32
+	MaxBufferedWriteMsgNum uint32
+	VerifyDatas            []string
+}
+
+func (c *ServerConfig) validate() {
+	if c.HeartTimeout <= 0 {
+		c.HeartTimeout = 5 * time.Second
+	}
+	if c.HeartPorbe <= 0 {
+		c.HeartPorbe = 1500 * time.Millisecond
+	}
+	if c.GroupNum == 0 {
+		c.GroupNum = 1
+	}
+	if c.SocketRBuf == 0 {
+		c.SocketRBuf = 1024
+	}
+	if c.SocketRBuf > 65535 {
+		c.SocketRBuf = 65535
+	}
+	if c.SocketWBuf == 0 {
+		c.SocketWBuf = 1024
+	}
+	if c.SocketWBuf > 65535 {
+		c.SocketWBuf = 65535
+	}
+	if c.MaxMsgLen < 1024 {
+		c.MaxMsgLen = 65535
+	}
+	if c.MaxMsgLen > 65535 {
+		c.MaxMsgLen = 65535
+	}
+	if c.MaxBufferedWriteMsgNum == 0 {
+		c.MaxBufferedWriteMsgNum = 256
+	}
+}
+
 type DiscoveryServer struct {
-	lker        *sync.RWMutex
-	groups      map[string]*appgroup //key appname
-	verifydatas []string
-	instance    *stream.Instance
+	c         *ServerConfig
+	lker      *sync.RWMutex
+	apps      map[string]*app //key appname
+	instance  *stream.Instance
+	closewait *sync.WaitGroup
+	closing   int32
 }
 
 //appuniquename = appname:ip:port
-type appgroup struct {
-	apps     map[string]*appnode //key appuniquename
+type app struct {
+	nodes    map[string]*appnode //key appuniquename
 	watchers map[string]*appnode //key appuniquename
 }
 
@@ -46,7 +97,7 @@ type appnode struct {
 }
 
 //old: true means oldverifydata is useful,false means oldverifydata is useless
-func NewDiscoveryServer(c *stream.InstanceConfig, group, name string, verifydatas []string) (*DiscoveryServer, error) {
+func NewDiscoveryServer(c *ServerConfig, group, name string) (*DiscoveryServer, error) {
 	if e := common.NameCheck(name, false, true, false, true); e != nil {
 		return nil, e
 	}
@@ -56,54 +107,84 @@ func NewDiscoveryServer(c *stream.InstanceConfig, group, name string, verifydata
 	if e := common.NameCheck(group+"."+name, true, true, false, true); e != nil {
 		return nil, e
 	}
-	instance := &DiscoveryServer{
-		lker:        &sync.RWMutex{},
-		groups:      make(map[string]*appgroup, 5),
-		verifydatas: verifydatas,
-	}
-	var dupc stream.InstanceConfig
 	if c == nil {
-		dupc = stream.InstanceConfig{}
-	} else {
-		dupc = *c //duplicate to remote the callback func race
+		c = &ServerConfig{}
+	}
+	c.validate()
+	instance := &DiscoveryServer{
+		c:         c,
+		lker:      &sync.RWMutex{},
+		apps:      make(map[string]*app, 5),
+		closewait: &sync.WaitGroup{},
+	}
+	instance.closewait.Add(1)
+	tcpc := &stream.InstanceConfig{
+		HeartbeatTimeout:       c.HeartTimeout,
+		HeartprobeInterval:     c.HeartPorbe,
+		MaxBufferedWriteMsgNum: c.MaxBufferedWriteMsgNum,
+		GroupNum:               c.GroupNum,
+		TcpC: &stream.TcpConfig{
+			SocketRBufLen: c.SocketRBuf,
+			SocketWBufLen: c.SocketWBuf,
+			MaxMsgLen:     c.MaxMsgLen,
+		},
 	}
 	//tcp instance
-	dupc.Verifyfunc = instance.verifyfunc
-	dupc.Onlinefunc = instance.onlinefunc
-	dupc.Userdatafunc = instance.userfunc
-	dupc.Offlinefunc = instance.offlinefunc
-	instance.instance, _ = stream.NewInstance(&dupc, group, name)
+	tcpc.Verifyfunc = instance.verifyfunc
+	tcpc.Onlinefunc = instance.onlinefunc
+	tcpc.Userdatafunc = instance.userfunc
+	tcpc.Offlinefunc = instance.offlinefunc
+	instance.instance, _ = stream.NewInstance(tcpc, group, name)
 	return instance, nil
 }
 
+var ErrServerClosed = errors.New("[discovery.server] closed")
+var ErrAlreadyStarted = errors.New("[discovery.server] already started")
+
 func (s *DiscoveryServer) StartDiscoveryServer(listenaddr string) error {
-	log.Info("[Discovery.server] start with verifydatas:", s.verifydatas)
-	return s.instance.StartTcpServer(listenaddr)
+	e := s.instance.StartTcpServer(listenaddr)
+	if e == stream.ErrServerClosed {
+		return ErrServerClosed
+	} else if e == stream.ErrAlreadyStarted {
+		return ErrAlreadyStarted
+	}
+	return e
 }
 func (s *DiscoveryServer) StopDiscoveryServer() {
-	s.instance.Stop()
+	if atomic.SwapInt32(&s.closing, 1) == 0 {
+		s.instance.Stop()
+		s.closewait.Done()
+	}
+	s.closewait.Wait()
 }
 
 //one app's info
 type Info struct {
-	Apps     map[string]int //key appuniquename,value registered status
-	Watchers []string       //value appuniquename
+	Apps     map[string]string //key appuniquename,value registered status
+	Watchers []string          //value appuniquename
 }
 
 func (s *DiscoveryServer) GetAppInfos() map[string]*Info {
 	result := make(map[string]*Info)
 	s.lker.RLock()
 	defer s.lker.RUnlock()
-	for appname, group := range s.groups {
+	for appname, app := range s.apps {
 		temp := &Info{
-			Apps:     make(map[string]int, len(group.apps)),
-			Watchers: make([]string, 0, len(group.watchers)),
+			Apps:     make(map[string]string, len(app.nodes)),
+			Watchers: make([]string, 0, len(app.watchers)),
 		}
-		for k, app := range group.apps {
-			temp.Apps[k] = app.status
+		for appuniquename, node := range app.nodes {
+			switch node.status {
+			case s_CONNECTED:
+				temp.Apps[appuniquename] = "connected"
+			case s_REGISTERED:
+				temp.Apps[appuniquename] = "registered"
+			case s_CLOSED:
+				temp.Apps[appuniquename] = "closed"
+			}
 		}
-		for k := range group.watchers {
-			temp.Watchers = append(temp.Watchers, k)
+		for watcheruniquename := range app.watchers {
+			temp.Watchers = append(temp.Watchers, watcheruniquename)
 		}
 		result[appname] = temp
 	}
@@ -113,16 +194,23 @@ func (s *DiscoveryServer) GetAppInfo(appname string) map[string]*Info {
 	result := make(map[string]*Info)
 	s.lker.RLock()
 	defer s.lker.RUnlock()
-	if group, ok := s.groups[appname]; ok {
+	if app, ok := s.apps[appname]; ok {
 		temp := &Info{
-			Apps:     make(map[string]int, len(group.apps)),
-			Watchers: make([]string, 0, len(group.watchers)),
+			Apps:     make(map[string]string, len(app.nodes)),
+			Watchers: make([]string, 0, len(app.watchers)),
 		}
-		for k, app := range group.apps {
-			temp.Apps[k] = app.status
+		for appuniquename, node := range app.nodes {
+			switch node.status {
+			case s_CONNECTED:
+				temp.Apps[appuniquename] = "connected"
+			case s_REGISTERED:
+				temp.Apps[appuniquename] = "registered"
+			case s_CLOSED:
+				temp.Apps[appuniquename] = "closed"
+			}
 		}
-		for k := range group.watchers {
-			temp.Watchers = append(temp.Watchers, k)
+		for watcheruniquename := range app.watchers {
+			temp.Watchers = append(temp.Watchers, watcheruniquename)
 		}
 		result[appname] = temp
 	}
@@ -131,6 +219,9 @@ func (s *DiscoveryServer) GetAppInfo(appname string) map[string]*Info {
 
 //appuniquename = appname:ip:port
 func (s *DiscoveryServer) verifyfunc(ctx context.Context, appuniquename string, peerVerifyData []byte) ([]byte, bool) {
+	if s.closing == 1 {
+		return nil, false
+	}
 	temp := common.Byte2str(peerVerifyData)
 	index := strings.LastIndex(temp, "|")
 	if index == -1 {
@@ -141,12 +232,12 @@ func (s *DiscoveryServer) verifyfunc(ctx context.Context, appuniquename string, 
 	if targetname != s.instance.GetSelfName() {
 		return nil, false
 	}
-	if len(s.verifydatas) == 0 {
+	if len(s.c.VerifyDatas) == 0 {
 		dup := make([]byte, len(vdata))
 		copy(dup, vdata)
 		return dup, true
 	}
-	for _, verifydata := range s.verifydatas {
+	for _, verifydata := range s.c.VerifyDatas {
 		if verifydata == vdata {
 			return common.Str2byte(verifydata), true
 		}
@@ -155,18 +246,21 @@ func (s *DiscoveryServer) verifyfunc(ctx context.Context, appuniquename string, 
 }
 
 //appuniquename = appname:ip:port
-func (s *DiscoveryServer) onlinefunc(p *stream.Peer, appuniquename string, sid int64) {
+func (s *DiscoveryServer) onlinefunc(p *stream.Peer, appuniquename string, sid int64) bool {
+	if s.closing == 1 {
+		return false
+	}
 	s.lker.Lock()
 	defer s.lker.Unlock()
 	appname := appuniquename[:strings.Index(appuniquename, ":")]
-	if g, ok := s.groups[appname]; ok {
-		if _, ok := g.apps[appuniquename]; ok {
+	if g, ok := s.apps[appname]; ok {
+		if _, ok := g.nodes[appuniquename]; ok {
 			p.Close(sid)
-			return
+			return false
 		}
 	} else {
-		s.groups[appname] = &appgroup{
-			apps:     make(map[string]*appnode, 5),
+		s.apps[appname] = &app{
+			nodes:    make(map[string]*appnode, 5),
 			watchers: make(map[string]*appnode, 5),
 		}
 	}
@@ -180,13 +274,13 @@ func (s *DiscoveryServer) onlinefunc(p *stream.Peer, appuniquename string, sid i
 		bewatched:     make(map[string]*appnode, 5),
 	}
 	//copy bewarched
-	for k, v := range s.groups[appname].watchers {
+	for k, v := range s.apps[appname].watchers {
 		node.bewatched[k] = v
 	}
 	p.SetData(unsafe.Pointer(node))
-	s.groups[appname].apps[appuniquename] = node
+	s.apps[appname].nodes[appuniquename] = node
 	log.Info("[Discovery.server.onlinefunc] app:", appuniquename, "online")
-	return
+	return true
 }
 
 //appuniquename = appname:ip:port
@@ -205,7 +299,7 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 	switch m.MsgType {
 	case msg.MsgType_Reg:
 		reg := m.GetRegMsg()
-		if reg == nil || reg.RegInfo == nil || ((reg.RegInfo.WebPort == 0 || reg.RegInfo.WebScheme == "") && reg.RegInfo.RpcPort == 0) {
+		if reg == nil || reg.RegInfo == nil || (reg.RegInfo.WebPort == 0 && reg.RegInfo.RpcPort == 0) {
 			//register with empty data
 			log.Error("[Discovery.server.userfunc] empty reginfo from:", appuniquename)
 			p.Close(sid)
@@ -215,7 +309,7 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 		lindex := strings.LastIndex(appuniquename, ":")
 		ip := appuniquename[findex+1 : lindex]
 		reg.RegInfo.WebIp = ""
-		if reg.RegInfo.WebPort != 0 && reg.RegInfo.WebScheme != "" {
+		if reg.RegInfo.WebPort != 0 {
 			reg.RegInfo.WebIp = ip
 		}
 		reg.RegInfo.RpcIp = ""
@@ -227,24 +321,26 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 		defer node.lker.Unlock()
 		node.reginfo = reg.RegInfo
 		node.status = s_REGISTERED
-		onlinemsg, _ := proto.Marshal(&msg.Msg{
-			MsgType: msg.MsgType_Reg,
-			RegMsg: &msg.RegMsg{
-				AppUniqueName: appuniquename,
-				RegInfo:       reg.RegInfo,
-			},
-		})
-		for _, v := range node.bewatched {
-			v.lker.RLock()
-			if v.status != s_CLOSED {
-				v.peer.SendMessage(onlinemsg, v.sid, true)
+		if len(node.bewatched) > 0 {
+			onlinemsg, _ := proto.Marshal(&msg.Msg{
+				MsgType: msg.MsgType_Reg,
+				RegMsg: &msg.RegMsg{
+					AppUniqueName: appuniquename,
+					RegInfo:       reg.RegInfo,
+				},
+			})
+			for _, watcherapp := range node.bewatched {
+				watcherapp.lker.RLock()
+				if watcherapp.status != s_CLOSED {
+					watcherapp.peer.SendMessage(onlinemsg, watcherapp.sid, true)
+				}
+				watcherapp.lker.RUnlock()
 			}
-			v.lker.RUnlock()
 		}
 		if reg.RegInfo.WebIp != "" && reg.RegInfo.RpcIp != "" {
-			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort, "web:", reg.RegInfo.WebScheme, ip, reg.RegInfo.WebPort)
+			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort, "web:", ip, reg.RegInfo.WebPort)
 		} else if reg.RegInfo.WebIp != "" {
-			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with web:", reg.RegInfo.WebScheme, ip, reg.RegInfo.WebPort)
+			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with web:", ip, reg.RegInfo.WebPort)
 		} else {
 			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort)
 		}
@@ -262,21 +358,21 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 		}
 		node := (*appnode)(p.GetData())
 		s.lker.Lock()
-		if _, ok := s.groups[watch.AppName]; !ok {
-			s.groups[watch.AppName] = &appgroup{
-				apps:     make(map[string]*appnode, 5),
+		if _, ok := s.apps[watch.AppName]; !ok {
+			s.apps[watch.AppName] = &app{
+				nodes:    make(map[string]*appnode, 5),
 				watchers: make(map[string]*appnode, 5),
 			}
 		}
-		s.groups[watch.AppName].watchers[appuniquename] = node
-		apps := make(map[string]*msg.RegInfo, len(s.groups[watch.AppName].apps))
-		for _, app := range s.groups[watch.AppName].apps {
-			app.lker.Lock()
-			app.bewatched[appuniquename] = node
-			if app.status == s_REGISTERED {
-				apps[app.appuniquename] = app.reginfo
+		s.apps[watch.AppName].watchers[appuniquename] = node
+		reginfos := make(map[string]*msg.RegInfo, len(s.apps[watch.AppName].nodes))
+		for _, node := range s.apps[watch.AppName].nodes {
+			node.lker.Lock()
+			node.bewatched[appuniquename] = node
+			if node.status == s_REGISTERED {
+				reginfos[node.appuniquename] = node.reginfo
 			}
-			app.lker.Unlock()
+			node.lker.Unlock()
 		}
 		node.lker.Lock()
 		s.lker.Unlock()
@@ -285,7 +381,7 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 			MsgType: msg.MsgType_Push,
 			PushMsg: &msg.PushMsg{
 				AppName: watch.AppName,
-				Apps:    apps,
+				Apps:    reginfos,
 			},
 		})
 		node.peer.SendMessage(pushmsg, node.sid, true)
@@ -303,12 +399,12 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 						AppUniqueName: appuniquename,
 					},
 				})
-				for _, watchedapp := range node.bewatched {
-					watchedapp.lker.RLock()
-					if watchedapp.status != s_CLOSED {
-						watchedapp.peer.SendMessage(offlinemsg, watchedapp.sid, true)
+				for _, watcherapp := range node.bewatched {
+					watcherapp.lker.RLock()
+					if watcherapp.status != s_CLOSED {
+						watcherapp.peer.SendMessage(offlinemsg, watcherapp.sid, true)
 					}
-					watchedapp.lker.RUnlock()
+					watcherapp.lker.RUnlock()
 				}
 			}
 		}
@@ -323,55 +419,46 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 func (s *DiscoveryServer) offlinefunc(p *stream.Peer, appuniquename string) {
 	s.lker.Lock()
 	appname := appuniquename[:strings.Index(appuniquename, ":")]
-	group, ok := s.groups[appname]
-	if !ok {
-		s.lker.Unlock()
-		log.Error("[Discovery.server.offlinefunc] app:", appuniquename, "missing")
-		return
+	self := s.apps[appname].nodes[appuniquename]
+	//app, _ := s.apps[appname]
+	//node, _ := app.nodes[appuniquename]
+	delete(s.apps[appname].nodes, appuniquename)
+	if len(s.apps[appname].nodes) == 0 && len(s.apps[appname].watchers) == 0 {
+		delete(s.apps, appname)
 	}
-	node, ok := group.apps[appuniquename]
-	if !ok {
-		s.lker.Unlock()
-		log.Error("[Discovery.server.offlinefunc] app:", appuniquename, "missing")
-		return
-	}
-	delete(s.groups[appname].apps, appuniquename)
-	if len(s.groups[appname].apps) == 0 && len(s.groups[appname].watchers) == 0 {
-		delete(s.groups, appname)
-	}
-	for v := range node.watched {
-		group, ok := s.groups[v]
+	for v := range self.watched {
+		bewatchedapp, ok := s.apps[v]
 		if !ok {
 			continue
 		}
-		delete(group.watchers, appuniquename)
-		for _, app := range group.apps {
-			app.lker.Lock()
-			delete(app.bewatched, appuniquename)
-			app.lker.Unlock()
+		delete(bewatchedapp.watchers, appuniquename)
+		for _, node := range bewatchedapp.nodes {
+			node.lker.Lock()
+			delete(node.bewatched, appuniquename)
+			node.lker.Unlock()
 		}
-		if len(group.apps) == 0 && len(group.watchers) == 0 {
-			delete(s.groups, v)
+		if len(bewatchedapp.nodes) == 0 && len(bewatchedapp.watchers) == 0 {
+			delete(s.apps, v)
 		}
 	}
-	node.lker.Lock()
+	self.lker.Lock()
 	s.lker.Unlock()
-	if node.status == s_REGISTERED && len(node.bewatched) > 0 {
+	if self.status == s_REGISTERED && len(self.bewatched) > 0 {
 		offlinemsg, _ := proto.Marshal(&msg.Msg{
 			MsgType: msg.MsgType_UnReg,
 			UnregMsg: &msg.UnregMsg{
 				AppUniqueName: appuniquename,
 			},
 		})
-		for _, v := range node.bewatched {
-			v.lker.RLock()
-			if v.status != s_CLOSED {
-				v.peer.SendMessage(offlinemsg, v.sid, true)
+		for _, watcherapp := range self.bewatched {
+			watcherapp.lker.RLock()
+			if watcherapp.status != s_CLOSED {
+				watcherapp.peer.SendMessage(offlinemsg, watcherapp.sid, true)
 			}
-			v.lker.RUnlock()
+			watcherapp.lker.RUnlock()
 		}
 	}
-	node.status = s_CLOSED
-	node.lker.Unlock()
+	self.status = s_CLOSED
+	self.lker.Unlock()
 	log.Info("[Discovery.server.offlinefunc] app:", appuniquename, "offline")
 }
