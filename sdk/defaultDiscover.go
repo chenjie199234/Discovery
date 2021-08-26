@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"errors"
 	"time"
 
 	"github.com/chenjie199234/Discovery/client"
@@ -10,62 +11,73 @@ import (
 	"github.com/chenjie199234/Corelib/web"
 )
 
-func DefaultRpcDiscover(group, name string, manually <-chan struct{}, c *rpc.RpcClient) {
-	var notice chan struct{}
+func RpcDiscover(noticegroup, noticename string) func(string, string, <-chan struct{}) (map[string]*rpc.RegisterData, error) {
+	var notice <-chan struct{}
 	var e error
 	for {
-		notice, e = client.NoticeRpcChanges(group + "." + name)
-		if e != nil {
-			log.Error("[rpc.client.defaultDiscover] register notice error:", e)
-			time.Sleep(time.Millisecond * 100)
+		if regmsg == nil {
+			log.Error("[Discovery.sdk] not inited")
 		} else {
-			break
+			notice, e = client.NoticeRpcChanges(noticegroup + "." + noticename)
+			if e == nil {
+				break
+			}
+			log.Error("[Discovery.sdk] notice error:", e)
 		}
+		time.Sleep(time.Millisecond * 50)
 	}
-
-	for {
-		<-notice
-		addrs, additions := client.GetRpcInfos(group + "." + name)
-		all := make(map[string]*rpc.RegisterData, len(addrs)+2)
-		for addr := range addrs {
-			all[addr] = &rpc.RegisterData{
-				DServers: make(map[string]struct{}, len(addrs[addr])+2),
-				Addition: additions[addr],
-			}
-			for _, dserver := range addrs[addr] {
-				all[addr].DServers[dserver] = struct{}{}
+	return func(group, name string, manually <-chan struct{}) (map[string]*rpc.RegisterData, error) {
+		select {
+		case <-notice:
+		case <-manually:
+		}
+		if noticegroup != group || noticename != name {
+			log.Error("[Discovery.sdk] app conflict")
+			return nil, errors.New("[Discovery.sdk] app conflict")
+		}
+		apps := client.GetRpcInfos(group + "." + name)
+		result := make(map[string]*rpc.RegisterData, len(apps))
+		for addr, app := range apps {
+			result[addr] = &rpc.RegisterData{
+				DServers: app.DiscoveryServerAddrs,
+				Addition: app.Addition,
 			}
 		}
-		c.UpdateDiscovery(all)
+		return result, nil
 	}
 }
-
-func DefaultWebDiscover(group, name string, manually <-chan struct{}, c *web.WebClient) {
-	var notice chan struct{}
+func WebDiscover(noticegroup, noticename string) func(string, string, <-chan struct{}) (map[string]*web.RegisterData, error) {
+	var notice <-chan struct{}
 	var e error
 	for {
-		notice, e = client.NoticeWebChanges(group + "." + name)
-		if e != nil {
-			log.Error("[web.client.defaultDiscover] register notice error:", e)
-			time.Sleep(time.Millisecond * 10)
+		if regmsg == nil {
+			log.Error("[Discovery.sdk] not inited")
 		} else {
-			break
+			notice, e = client.NoticeWebChanges(noticegroup + "." + noticename)
+			if e == nil {
+				break
+			}
+			log.Error("[Discovery.sdk] notice error:", e)
 		}
+		time.Sleep(time.Millisecond * 50)
 	}
-
-	for {
-		<-notice
-		addrs, additions := client.GetWebInfos(group + "." + name)
-		all := make(map[string]*web.RegisterData, len(addrs)+2)
-		for addr := range addrs {
-			all[addr] = &web.RegisterData{
-				DServers: make(map[string]struct{}, len(addrs[addr])+2),
-				Addition: additions[addr],
-			}
-			for _, dserver := range addrs[addr] {
-				all[addr].DServers[dserver] = struct{}{}
+	return func(group, name string, manually <-chan struct{}) (map[string]*web.RegisterData, error) {
+		select {
+		case <-notice:
+		case <-manually:
+		}
+		if noticegroup != group || noticename != name {
+			log.Error("[Discovery.sdk] app conflict")
+			return nil, errors.New("[Discovery.sdk] app conflict")
+		}
+		apps := client.GetWebInfos(group + "." + name)
+		result := make(map[string]*web.RegisterData, len(apps))
+		for addr, app := range apps {
+			result["http://"+addr] = &web.RegisterData{
+				DServers: app.DiscoveryServerAddrs,
+				Addition: app.Addition,
 			}
 		}
-		c.UpdateDiscovery(all)
+		return result, nil
 	}
 }

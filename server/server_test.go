@@ -1,9 +1,10 @@
 package server
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/chenjie199234/Corelib/log"
 )
 
 func Test_Server1(t *testing.T) {
@@ -24,8 +25,7 @@ func Test_Server1(t *testing.T) {
 		tker := time.NewTicker(time.Second)
 		for {
 			<-tker.C
-			fmt.Println("client1:", instance.GetAppInfo("testgroup.testclient1")["testgroup.testclient1"])
-			fmt.Println("client2:", instance.GetAppInfo("testgroup.testclient2")["testgroup.testclient2"])
+			log.Info(instance.GetAppInfos())
 		}
 	}()
 	instance.StartDiscoveryServer("127.0.0.1:9234")
@@ -48,8 +48,7 @@ func Test_Server2(t *testing.T) {
 		tker := time.NewTicker(time.Second)
 		for {
 			<-tker.C
-			fmt.Println("client1:", instance.GetAppInfo("testgroup.testclient1")["testgroup.testclient1"])
-			fmt.Println("client2:", instance.GetAppInfo("testgroup.testclient2")["testgroup.testclient2"])
+			log.Info(instance.GetAppInfos())
 		}
 	}()
 	instance.StartDiscoveryServer("127.0.0.1:9235")

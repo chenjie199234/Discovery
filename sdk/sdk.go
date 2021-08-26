@@ -1,15 +1,13 @@
 package sdk
 
 import (
-	"bytes"
-	"context"
 	"errors"
 	"net"
-	"sort"
 	"sync/atomic"
 	"time"
 	"unsafe"
 
+	"github.com/chenjie199234/Discovery/api"
 	"github.com/chenjie199234/Discovery/client"
 	"github.com/chenjie199234/Discovery/msg"
 
@@ -33,107 +31,61 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 	if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&regmsg)), nil, unsafe.Pointer(&msg.RegMsg{})) {
 		return nil
 	}
-	if e := client.NewDiscoveryClient(nil, selfgroup, selfname, verifydata, func(manually chan struct{}, client *client.DiscoveryClient) {
-		host := "discovery-service-headless.default"
-		appname := "default.discovery"
-
-		current := make([]string, 0)
-
-		finder := func() {
-			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-			defer cancel()
-			addrs, e := net.DefaultResolver.LookupHost(ctx, host)
+	if e := client.NewDiscoveryClient(&client.ClientConfig{
+		VerifyData:       verifydata,
+		DiscoverInterval: time.Second * 10,
+		DiscoverFunction: func(group, name string) (map[string]struct{}, error) {
+			result := make(map[string]struct{})
+			addrs, e := net.LookupHost(name + "-service-headless" + "." + group)
 			if e != nil {
-				log.Error("[Discovery.sdk] dns resolve host:", host, "error:", e)
-				return
+				log.Error("[Discovery.sdk] get:", name+"-service-headless", "addrs error:", e)
+				return nil, e
 			}
-			if len(addrs) != 0 {
-				sort.Strings(addrs)
-				for i, addr := range addrs {
-					addrs[i] = appname + ":" + addr + ":10000"
-				}
-			} else {
-				log.Warning("[Discovery.sdk] dns resolve host:", host, "return empty result")
+			for _, addr := range addrs {
+				result[addr] = struct{}{}
 			}
-			different := false
-			if len(current) != len(addrs) {
-				different = true
-			} else {
-				for i, addr := range addrs {
-					if addr != current[i] {
-						different = true
-						break
-					}
-				}
-			}
-			if different {
-				current = addrs
-				log.Info("[Discovery.sdk] dns resolve host:", host, "result:", current)
-				client.UpdateDiscoveryServers(addrs)
-			}
-		}
-		finder()
-		tker := time.NewTicker(time.Second * 5)
-		for {
-			select {
-			case <-tker.C:
-				finder()
-			case <-manually:
-				finder()
-				tker.Reset(time.Second * 5)
-				for len(tker.C) > 0 {
-					<-tker.C
-				}
-			}
-		}
-	}); e != nil {
+			return result, nil
+		},
+	}, selfgroup, selfname, api.Group, api.Name); e != nil {
 		return e
 	}
 	return nil
 }
+
 func RegRpc(rpcport int64) error {
 	if rpcport <= 0 || rpcport > 65535 {
-		return errors.New("[Discovery.sdk] rpcport out of range")
+		return errors.New("[Discovery.sdk] rpc port out of range")
 	}
-	if regmsg != nil {
-		if rpcport == regmsg.WebPort {
-			return errors.New("[Discovery.sdk] rpcport and webport conflict")
-		}
-		regmsg.RpcPort = rpcport
-		return nil
-	} else {
+	if regmsg == nil {
 		return errors.New("[Discovery.sdk] not inited")
 	}
+	if rpcport == regmsg.WebPort {
+		return errors.New("[Discovery.sdk] rpc port and web port conflict")
+	}
+	regmsg.RpcPort = rpcport
+	return nil
 }
+
 func RegWeb(webport int64, webscheme string) error {
 	if webport <= 0 || webport > 65535 {
-		return errors.New("[Discovery.sdk] webport out of range")
+		return errors.New("[Discovery.sdk] web port out of range")
 	}
-	if regmsg != nil {
-		if webport == regmsg.RpcPort {
-			return errors.New("[Discovery.sdk] rpcport and webport conflict")
-		}
-		if webscheme != "http" && webscheme != "https" {
-			return errors.New("[Discovery.sdk] webscheme unknown,must be http or https")
-		}
-		regmsg.WebPort = webport
-		regmsg.WebScheme = webscheme
-		return nil
-	} else {
+	if regmsg == nil {
 		return errors.New("[Discovery.sdk] not inited")
 	}
+	if webport == regmsg.RpcPort {
+		return errors.New("[Discovery.sdk] rpc port and web port conflict")
+	}
+	regmsg.WebPort = webport
+	return nil
 }
 
 func RegisterSelf(addition []byte) error {
-	if regmsg != nil {
-		if bytes.Contains(addition, []byte{'|'}) {
-			return errors.New("[Discovery.sdk] addition data contains illegal character '|'")
-		}
-		regmsg.Addition = addition
-		return client.RegisterSelf(regmsg)
-	} else {
+	if regmsg == nil {
 		return errors.New("[Discovery.sdk] not inited")
 	}
+	regmsg.Addition = addition
+	return client.RegisterSelf(regmsg)
 }
 
 func UnRegisterSelf() {

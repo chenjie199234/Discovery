@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chenjie199234/Discovery/api"
 	"github.com/chenjie199234/Discovery/server"
 
 	"github.com/chenjie199234/Corelib/log"
@@ -27,7 +28,7 @@ func main() {
 	}
 	discoveryserver, e := server.NewDiscoveryServer(&server.ServerConfig{
 		VerifyDatas: verifydatas,
-	}, "default", "discovery")
+	}, api.Group, api.Name)
 	if e != nil {
 		log.Error("[main] new discovery server error:", e)
 		return

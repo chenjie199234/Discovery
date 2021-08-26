@@ -347,7 +347,7 @@ func UnRegisterSelf() error {
 	return nil
 }
 
-func NoticeWebChanges(appname string) (chan struct{}, error) {
+func NoticeWebChanges(appname string) (<-chan struct{}, error) {
 	if instance == nil {
 		return nil, errors.New("[Discovery.client] not inited")
 	}
@@ -377,7 +377,7 @@ func NoticeWebChanges(appname string) (chan struct{}, error) {
 	return ch, nil
 }
 
-func NoticeRpcChanges(appname string) (chan struct{}, error) {
+func NoticeRpcChanges(appname string) (<-chan struct{}, error) {
 	if instance == nil {
 		return nil, errors.New("[Discovery.client] not inited")
 	}
@@ -630,7 +630,6 @@ func (c *DiscoveryClient) offlinefunc(p *stream.Peer, serveruniquename string) {
 	server.allapps = make(map[string]map[string]*msg.RegInfo, 5)
 	if server.status != 0 {
 		server.status = 1
-		server.lker.Unlock()
 		go c.start(server.addr)
 	}
 }
