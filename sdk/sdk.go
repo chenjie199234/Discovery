@@ -42,7 +42,7 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 				return nil, e
 			}
 			for _, addr := range addrs {
-				result[addr] = struct{}{}
+				result[addr+":10000"] = struct{}{}
 			}
 			return result, nil
 		},
