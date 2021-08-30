@@ -32,7 +32,7 @@ spec:
               cpu: 250m
           env:
             - name: DEPLOY_ENV
-              value: kubernetes
+              value: kube
             - name: RUN_ENV
               value: <RUN_ENV>
             - name: SERVER_VERIFY_DATA
