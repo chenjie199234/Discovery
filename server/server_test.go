@@ -25,7 +25,7 @@ func Test_Server1(t *testing.T) {
 		tker := time.NewTicker(time.Second)
 		for {
 			<-tker.C
-			log.Info(instance.GetAppInfos())
+			log.Info(nil, instance.GetAppInfos())
 		}
 	}()
 	instance.StartDiscoveryServer("127.0.0.1:9234")
@@ -48,7 +48,7 @@ func Test_Server2(t *testing.T) {
 		tker := time.NewTicker(time.Second)
 		for {
 			<-tker.C
-			log.Info(instance.GetAppInfos())
+			log.Info(nil, instance.GetAppInfos())
 		}
 	}()
 	instance.StartDiscoveryServer("127.0.0.1:9235")

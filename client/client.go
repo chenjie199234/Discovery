@@ -306,11 +306,11 @@ func RegisterSelf(reginfo *msg.RegInfo) error {
 		if server.status == 3 {
 			server.status = 4
 			if reginfo.RpcPort != 0 && reginfo.WebPort != 0 {
-				log.Info("[Discovery.client.RegisterSelf] reg to discovery server:", addr, "with rpc on port:", reginfo.RpcPort, "web on port:", reginfo.WebPort)
+				log.Info(nil, "[Discovery.client.RegisterSelf] reg to discovery server:", addr, "with rpc on port:", reginfo.RpcPort, "web on port:", reginfo.WebPort)
 			} else if reginfo.RpcPort != 0 {
-				log.Info("[Discovery.client.RegisterSelf] reg to discovery server:", addr, "with rpc on port:", reginfo.RpcPort)
+				log.Info(nil, "[Discovery.client.RegisterSelf] reg to discovery server:", addr, "with rpc on port:", reginfo.RpcPort)
 			} else {
-				log.Info("[Discovery.client.RegisterSelf] reg to discovery server:", addr, "with web on port:", reginfo.WebPort)
+				log.Info(nil, "[Discovery.client.RegisterSelf] reg to discovery server:", addr, "with web on port:", reginfo.WebPort)
 			}
 			onlinemsg, _ := proto.Marshal(&msg.Msg{
 				MsgType: msg.MsgType_Reg,
@@ -340,7 +340,7 @@ func UnRegisterSelf() error {
 			server.status = 3
 			server.selfreginfo = nil
 			server.peer.SendMessage(offlinemsg, server.sid, true)
-			log.Info("[Discovery.client] unreg from discovery server:", addr)
+			log.Info(nil, "[Discovery.client] unreg from discovery server:", addr)
 			server.lker.Unlock()
 		}
 	}
@@ -493,7 +493,7 @@ func (c *DiscoveryClient) onlinefunc(p *stream.Peer, serveruniquename string, si
 	exist.lker.Lock()
 	defer exist.lker.Unlock()
 	c.lker.RUnlock()
-	log.Info("[Discovery.client.onlinefunc] discovery server:", addr, "online")
+	log.Info(nil, "[Discovery.client.onlinefunc] discovery server:", addr, "online")
 	exist.peer = p
 	exist.sid = sid
 	exist.status = 3
@@ -501,11 +501,11 @@ func (c *DiscoveryClient) onlinefunc(p *stream.Peer, serveruniquename string, si
 	if exist.selfreginfo != nil {
 		exist.status = 4
 		if exist.selfreginfo.RpcPort != 0 && exist.selfreginfo.WebPort != 0 {
-			log.Info("[Discovery.client.onlinefunc] reg to discovery server:", addr, "with rpc on port:", exist.selfreginfo.RpcPort, "web on port:", exist.selfreginfo.WebPort)
+			log.Info(nil, "[Discovery.client.onlinefunc] reg to discovery server:", addr, "with rpc on port:", exist.selfreginfo.RpcPort, "web on port:", exist.selfreginfo.WebPort)
 		} else if exist.selfreginfo.RpcPort != 0 {
-			log.Info("[Discovery.client.onlinefunc] reg to discovery server:", addr, "with rpc on port:", exist.selfreginfo.RpcPort)
+			log.Info(nil, "[Discovery.client.onlinefunc] reg to discovery server:", addr, "with rpc on port:", exist.selfreginfo.RpcPort)
 		} else {
-			log.Info("[Discovery.client.onlinefunc] reg to discovery server:", addr, "with web on port:", exist.selfreginfo.WebPort)
+			log.Info(nil, "[Discovery.client.onlinefunc] reg to discovery server:", addr, "with web on port:", exist.selfreginfo.WebPort)
 		}
 		onlinemsg, _ := proto.Marshal(&msg.Msg{
 			MsgType: msg.MsgType_Reg,
@@ -544,7 +544,7 @@ func (c *DiscoveryClient) userfunc(p *stream.Peer, serveruniquename string, orig
 	copy(data, origindata)
 	m := &msg.Msg{}
 	if e := proto.Unmarshal(data, m); e != nil {
-		log.Error("[Discovery.client.userfunc] message from:", server.addr, "format error:", e)
+		log.Error(nil, "[Discovery.client.userfunc] message from:", server.addr, "format error:", e)
 		p.Close(sid)
 		return
 	}
@@ -554,7 +554,7 @@ func (c *DiscoveryClient) userfunc(p *stream.Peer, serveruniquename string, orig
 	case msg.MsgType_Reg:
 		reg := m.GetRegMsg()
 		if reg == nil || reg.AppUniqueName == "" || reg.RegInfo == nil || (reg.RegInfo.WebPort == 0 && reg.RegInfo.RpcPort == 0) {
-			log.Error("[Discovery.client.userfunc] empty reg msg from:", server.addr)
+			log.Error(nil, "[Discovery.client.userfunc] empty reg msg from:", server.addr)
 			p.Close(sid)
 			return
 		}
@@ -574,7 +574,7 @@ func (c *DiscoveryClient) userfunc(p *stream.Peer, serveruniquename string, orig
 	case msg.MsgType_UnReg:
 		unreg := m.GetUnregMsg()
 		if unreg.AppUniqueName == "" {
-			log.Error("[Discovery.client.userfunc] empty unreg msg from:", server.addr)
+			log.Error(nil, "[Discovery.client.userfunc] empty unreg msg from:", server.addr)
 			p.Close(sid)
 			return
 		}
@@ -589,7 +589,7 @@ func (c *DiscoveryClient) userfunc(p *stream.Peer, serveruniquename string, orig
 	case msg.MsgType_Push:
 		push := m.GetPushMsg()
 		if push == nil || push.AppName == "" {
-			log.Error("[Discovery.client.userfunc] empty push msg from:", server.addr)
+			log.Error(nil, "[Discovery.client.userfunc] empty push msg from:", server.addr)
 			p.Close(sid)
 			return
 		}
@@ -610,13 +610,13 @@ func (c *DiscoveryClient) userfunc(p *stream.Peer, serveruniquename string, orig
 		c.notice(push.AppName)
 		c.nlker.RUnlock()
 	default:
-		log.Error("[Discovery.client.userfunc] unknown message type from:", server.addr)
+		log.Error(nil, "[Discovery.client.userfunc] unknown message type from:", server.addr)
 		p.Close(sid)
 	}
 }
 func (c *DiscoveryClient) offlinefunc(p *stream.Peer, serveruniquename string) {
 	server := (*servernode)(p.GetData())
-	log.Info("[Discovery.client.offlinefunc] discovery server:", server.addr, "offline")
+	log.Info(nil, "[Discovery.client.offlinefunc] discovery server:", server.addr, "offline")
 	server.lker.Lock()
 	defer server.lker.Unlock()
 	server.peer = nil

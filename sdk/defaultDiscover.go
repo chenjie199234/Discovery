@@ -16,13 +16,13 @@ func RpcDiscover(noticegroup, noticename string) func(string, string, <-chan str
 	var e error
 	for {
 		if regmsg == nil {
-			log.Error("[Discovery.sdk] not inited")
+			log.Error(nil, "[Discovery.sdk] not inited")
 		} else {
 			notice, e = client.NoticeRpcChanges(noticegroup + "." + noticename)
 			if e == nil {
 				break
 			}
-			log.Error("[Discovery.sdk] notice error:", e)
+			log.Error(nil, "[Discovery.sdk] notice error:", e)
 		}
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -32,7 +32,7 @@ func RpcDiscover(noticegroup, noticename string) func(string, string, <-chan str
 		case <-manually:
 		}
 		if noticegroup != group || noticename != name {
-			log.Error("[Discovery.sdk] app conflict")
+			log.Error(nil, "[Discovery.sdk] app conflict")
 			return nil, errors.New("[Discovery.sdk] app conflict")
 		}
 		apps := client.GetRpcInfos(group + "." + name)
@@ -51,13 +51,13 @@ func WebDiscover(noticegroup, noticename string) func(string, string, <-chan str
 	var e error
 	for {
 		if regmsg == nil {
-			log.Error("[Discovery.sdk] not inited")
+			log.Error(nil, "[Discovery.sdk] not inited")
 		} else {
 			notice, e = client.NoticeWebChanges(noticegroup + "." + noticename)
 			if e == nil {
 				break
 			}
-			log.Error("[Discovery.sdk] notice error:", e)
+			log.Error(nil, "[Discovery.sdk] notice error:", e)
 		}
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -67,7 +67,7 @@ func WebDiscover(noticegroup, noticename string) func(string, string, <-chan str
 		case <-manually:
 		}
 		if noticegroup != group || noticename != name {
-			log.Error("[Discovery.sdk] app conflict")
+			log.Error(nil, "[Discovery.sdk] app conflict")
 			return nil, errors.New("[Discovery.sdk] app conflict")
 		}
 		apps := client.GetWebInfos(group + "." + name)

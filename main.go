@@ -20,28 +20,28 @@ func main() {
 	if str, ok := os.LookupEnv("SERVER_VERIFY_DATA"); ok && str != "<SERVER_VERIFY_DATA>" {
 		verifydatas = make([]string, 0)
 		if e := json.Unmarshal([]byte(str), &verifydatas); e != nil {
-			log.Error("[main] SERVER_VERIFY_DATA must be json string array like:[\"abc\",\"123\"]")
+			log.Error(nil, "[main] SERVER_VERIFY_DATA must be json string array like:[\"abc\",\"123\"]")
 			return
 		}
 	} else {
-		log.Warning("[main] missing SERVER_VERIFY_DATA")
+		log.Warning(nil, "[main] missing SERVER_VERIFY_DATA")
 	}
 	discoveryserver, e := server.NewDiscoveryServer(&server.ServerConfig{
 		VerifyDatas: verifydatas,
 	}, api.Group, api.Name)
 	if e != nil {
-		log.Error("[main] new discovery server error:", e)
+		log.Error(nil, "[main] new discovery server error:", e)
 		return
 	}
 	webserver, e := web.NewWebServer(&web.ServerConfig{IdleTimeout: time.Second * 5}, "default", "discovery")
 	if e != nil {
-		log.Error("[main] new web server error:", e)
+		log.Error(nil, "[main] new web server error:", e)
 		return
 	}
 	webserver.Get("/infos", time.Millisecond*500, func(ctx *web.Context) {
 		result := discoveryserver.GetAppInfos()
 		d, _ := json.Marshal(result)
-		ctx.Write(200, d)
+		ctx.Write(d)
 	})
 	webserver.Get("/info/:group/:name", time.Millisecond*500, func(ctx *web.Context) {
 		group := ctx.GetParam("group")
@@ -49,15 +49,15 @@ func main() {
 		if group != "" && name != "" {
 			result := discoveryserver.GetAppInfo(group + "." + name)
 			d, _ := json.Marshal(result)
-			ctx.Write(200, d)
+			ctx.Write(d)
 		} else {
-			ctx.WriteString(404, "bad request")
+			ctx.WriteString("bad request")
 		}
 	})
 	ch := make(chan os.Signal, 1)
 	go func() {
 		if e := discoveryserver.StartDiscoveryServer(":10000"); e != nil {
-			log.Error("[main] start discovery server error:", e)
+			log.Error(nil, "[main] start discovery server error:", e)
 		}
 		select {
 		case ch <- syscall.SIGTERM:
@@ -66,7 +66,7 @@ func main() {
 	}()
 	go func() {
 		if e := webserver.StartWebServer(":8000", nil); e != nil {
-			log.Error("[main] start web server error:", e)
+			log.Error(nil, "[main] start web server error:", e)
 		}
 		select {
 		case ch <- syscall.SIGTERM:

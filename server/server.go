@@ -279,7 +279,7 @@ func (s *DiscoveryServer) onlinefunc(p *stream.Peer, appuniquename string, sid i
 	}
 	p.SetData(unsafe.Pointer(node))
 	s.apps[appname].nodes[appuniquename] = node
-	log.Info("[Discovery.server.onlinefunc] app:", appuniquename, "online")
+	log.Info(nil, "[Discovery.server.onlinefunc] app:", appuniquename, "online")
 	return true
 }
 
@@ -292,7 +292,7 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 	copy(data, origindata)
 	m := &msg.Msg{}
 	if e := proto.Unmarshal(data, m); e != nil {
-		log.Error("[Discovery.server.userfunc] message from:", appuniquename, "format error:", e)
+		log.Error(nil, "[Discovery.server.userfunc] message from:", appuniquename, "format error:", e)
 		p.Close(sid)
 		return
 	}
@@ -301,7 +301,7 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 		reg := m.GetRegMsg()
 		if reg == nil || reg.RegInfo == nil || (reg.RegInfo.WebPort == 0 && reg.RegInfo.RpcPort == 0) {
 			//register with empty data
-			log.Error("[Discovery.server.userfunc] empty reginfo from:", appuniquename)
+			log.Error(nil, "[Discovery.server.userfunc] empty reginfo from:", appuniquename)
 			p.Close(sid)
 			return
 		}
@@ -338,21 +338,21 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 			}
 		}
 		if reg.RegInfo.WebIp != "" && reg.RegInfo.RpcIp != "" {
-			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort, "web:", ip, reg.RegInfo.WebPort)
+			log.Info(nil, "[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort, "web:", ip, reg.RegInfo.WebPort)
 		} else if reg.RegInfo.WebIp != "" {
-			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with web:", ip, reg.RegInfo.WebPort)
+			log.Info(nil, "[Discovery.server.userfunc] app:", appuniquename, "reg with web:", ip, reg.RegInfo.WebPort)
 		} else {
-			log.Info("[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort)
+			log.Info(nil, "[Discovery.server.userfunc] app:", appuniquename, "reg with rpc:", ip, reg.RegInfo.RpcPort)
 		}
 	case msg.MsgType_Watch:
 		watch := m.GetWatchMsg()
 		if watch.AppName == "" {
-			log.Error("[Discovery.server.userfunc] app:", appuniquename, "watch empty")
+			log.Error(nil, "[Discovery.server.userfunc] app:", appuniquename, "watch empty")
 			p.Close(sid)
 			return
 		}
 		if watch.AppName == appuniquename[:strings.Index(appuniquename, ":")] {
-			log.Error("[Discovery.server.userfunc] app:", appuniquename, "watch self")
+			log.Error(nil, "[Discovery.server.userfunc] app:", appuniquename, "watch self")
 			p.Close(sid)
 			return
 		}
@@ -408,9 +408,9 @@ func (s *DiscoveryServer) userfunc(p *stream.Peer, appuniquename string, origind
 				}
 			}
 		}
-		log.Info("[Discovery.server.userfunc] app:", appuniquename, "unreg")
+		log.Info(nil, "[Discovery.server.userfunc] app:", appuniquename, "unreg")
 	default:
-		log.Error("[Discovery.server.userfunc] unknown message type:", m.MsgType, "from app:", appuniquename)
+		log.Error(nil, "[Discovery.server.userfunc] unknown message type:", m.MsgType, "from app:", appuniquename)
 		p.Close(sid)
 	}
 }
@@ -460,5 +460,5 @@ func (s *DiscoveryServer) offlinefunc(p *stream.Peer, appuniquename string) {
 	}
 	self.status = s_CLOSED
 	self.lker.Unlock()
-	log.Info("[Discovery.server.offlinefunc] app:", appuniquename, "offline")
+	log.Info(nil, "[Discovery.server.offlinefunc] app:", appuniquename, "offline")
 }

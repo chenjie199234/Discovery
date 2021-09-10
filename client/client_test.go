@@ -27,10 +27,10 @@ func Test_Client1(t *testing.T) {
 			select {
 			case <-rch:
 				appreginfo := GetRpcInfos("testgroup.testclient2")
-				log.Info("rpc:", appreginfo)
+				log.Info(nil, "rpc:", appreginfo)
 			case <-wch:
 				appreginfo := GetWebInfos("testgroup.testclient2")
-				log.Info("web:", appreginfo)
+				log.Info(nil, "web:", appreginfo)
 			}
 		}
 	}()
@@ -62,10 +62,10 @@ func Test_Client2(t *testing.T) {
 			select {
 			case <-rch:
 				appreginfo := GetRpcInfos("testgroup.testclient1")
-				log.Info("rpc:", appreginfo)
+				log.Info(nil, "rpc:", appreginfo)
 			case <-wch:
 				appreginfo := GetWebInfos("testgroup.testclient1")
-				log.Info("web:", appreginfo)
+				log.Info(nil, "web:", appreginfo)
 			}
 		}
 	}()

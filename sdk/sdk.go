@@ -38,7 +38,7 @@ func NewSdk(selfgroup, selfname, verifydata string) error {
 			result := make(map[string]struct{})
 			addrs, e := net.LookupHost(name + "-service-headless" + "." + group)
 			if e != nil {
-				log.Error("[Discovery.sdk] get:", name+"-service-headless", "addrs error:", e)
+				log.Error(nil, "[Discovery.sdk] get:", name+"-service-headless", "addrs error:", e)
 				return nil, e
 			}
 			for _, addr := range addrs {
