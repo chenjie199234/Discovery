@@ -142,7 +142,7 @@ var ErrServerClosed = errors.New("[discovery.server] closed")
 var ErrAlreadyStarted = errors.New("[discovery.server] already started")
 
 func (s *DiscoveryServer) StartDiscoveryServer(listenaddr string) error {
-	e := s.instance.StartTcpServer(listenaddr)
+	e := s.instance.StartTcpServer(listenaddr, nil)
 	if e == stream.ErrServerClosed {
 		return ErrServerClosed
 	} else if e == stream.ErrAlreadyStarted {

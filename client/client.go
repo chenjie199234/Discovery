@@ -249,7 +249,7 @@ func (c *DiscoveryClient) update(all map[string]struct{}) {
 }
 func (c *DiscoveryClient) start(addr string) {
 	tempverifydata := c.c.VerifyData + "|" + c.appname
-	if r := c.instance.StartTcpClient(addr, common.Str2byte(tempverifydata)); r == "" {
+	if r := c.instance.StartTcpClient(addr, common.Str2byte(tempverifydata), nil); r == "" {
 		c.lker.RLock()
 		server, ok := c.servers[addr]
 		if !ok {
