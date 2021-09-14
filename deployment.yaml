@@ -31,6 +31,10 @@ spec:
               memory: 256Mi
               cpu: 250m
           env:
+            - name: HOSTIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
             - name: DEPLOY_ENV
               value: kube
             - name: RUN_ENV
@@ -75,5 +79,27 @@ metadata:
 spec:
   type: ClusterIP
   clusterIP: None
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+    targetPort: 8000
+  selector:
+    app: discovery
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-service
+  namespace: default
+  labels:
+    app: discovery
+spec:
+  type: ClusterIP
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+    targetPort: 8000
   selector:
     app: discovery
